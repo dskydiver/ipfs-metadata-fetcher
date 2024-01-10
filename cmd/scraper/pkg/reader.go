@@ -22,7 +22,11 @@ func ReadCIDs(done <-chan struct{}, filepath string, errChan chan<- error) <-cha
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			cid := scanner.Text()
-			jobChan <- Job{CID: cid}
+			select {
+			case jobChan <- Job{CID: cid}:
+			case <-done:
+				return
+			}
 		}
 
 		if err := scanner.Err(); err != nil {
