@@ -1,0 +1,7 @@
+BEGIN;
+
+DROP FUNCTION IF EXISTS ulid_generate;
+
+DROP EXTENSION IF EXISTS pgcrypto;
+
+COMMIT;
