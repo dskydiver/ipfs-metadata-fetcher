@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
 	"time"
 
 	"github.com/dskydiver/ipfs-metadata-fetcher/pkg/model"
@@ -37,37 +36,41 @@ func NewScraper(done <-chan struct{}, jobChan <-chan Job, modelChan chan<- model
 
 func (s *Scraper) Run() {
 	for job := range s.JobChan {
-		// resp, err := s.Client.Get(fmt.Sprintf("https://ipfs.io/ipfs/%s", cid))
-		// if err != nil {
-		// 	s.ErrChan <- err
-		// 	s.Wg.Done()
-		// 	return
-		// }
-		// defer resp.Body.Close()
+		func() {
+			resp, err := s.Client.Get(fmt.Sprintf("https://ipfs.io/ipfs/%s", job.CID))
+			if err != nil {
+				s.ErrChan <- err
+				return
+			}
+			defer resp.Body.Close()
 
-		cmd := exec.Command("curl", fmt.Sprintf("https://ipfs.io/ipfs/%s", job.CID))
-		output, err := cmd.Output()
-		if err != nil {
-			s.ErrChan <- err
-			return
-		}
+			var data model.Model
 
-		var data model.Model
+			err = json.NewDecoder(resp.Body).Decode(&data)
 
-		// err = json.NewDecoder(resp.Body).Decode(&data)
-		err = json.Unmarshal(output, &data)
+			// cmd := exec.Command("curl", fmt.Sprintf("https://ipfs.io/ipfs/%s", job.CID))
+			// output, err := cmd.Output()
+			// if err != nil {
+			// 	s.ErrChan <- err
+			// 	return
+			// }
 
-		if err != nil {
-			s.ErrChan <- fmt.Errorf("error unmarshalling metadata for %s: %s", job.CID, err)
-			return
-		}
+			// var data model.Model
 
-		data.CID = job.CID
+			// err = json.Unmarshal(output, &data)
 
-		select {
-		case s.ModelChan <- data:
-		case <-s.done:
-			return
-		}
+			if err != nil {
+				s.ErrChan <- fmt.Errorf("error unmarshalling metadata for %s: %s", job.CID, err)
+				return
+			}
+
+			data.CID = job.CID
+
+			select {
+			case s.ModelChan <- data:
+			case <-s.done:
+				return
+			}
+		}()
 	}
 }
